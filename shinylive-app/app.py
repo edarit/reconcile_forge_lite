@@ -329,14 +329,36 @@ def server(input, output, session):
             ),
         )
 
+    # @output
+    # @render.table
+    # def preview():
+    #     try:
+    #         return result_rows()
+    #     except Exception:
+    #         return [{"info": "No result yet. Upload two CSV files, map columns, then click Run reconciliation."}]
+
     @output
-    @render.table
+    @render.ui
     def preview():
         try:
-            return result_rows()
+            data = result_rows()
+            if not data:
+                return ui.p("No results.")
+                
+            # Manually build a simple HTML table
+            header = [ui.tags.th(k) for k in data[0].keys()]
+            rows = []
+            for row in data[:10]: # Limit to first 10 for preview
+                rows.append(ui.tags.tr([ui.tags.td(str(v)) for v in row.values()]))
+                
+            return ui.tags.table(
+                ui.tags.thead(ui.tags.tr(header)),
+                ui.tags.tbody(rows),
+                class_="table shiny-table w-auto"
+            )
         except Exception:
-            return [{"info": "No result yet. Upload two CSV files, map columns, then click Run reconciliation."}]
-
+            return ui.p("Upload files and click Run.")
+    
     @output
     @render.download(filename="reconciliation_lite.csv")
     def download_csv():
