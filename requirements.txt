@@ -1,4 +1,2 @@
 shiny
-shinylive
 pandas
-openpyxl
