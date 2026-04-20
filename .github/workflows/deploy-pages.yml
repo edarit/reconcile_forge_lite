@@ -2,7 +2,7 @@ name: Deploy Shinylive app to GitHub Pages
 
 on:
   push:
-    branches: ["main"]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -11,36 +11,41 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "pages"
+  group: pages
   cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          python-version: '3.12'
+          cache: 'pip'
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install shinylive shiny pandas openpyxl
 
-      - name: Export Shinylive site
+      - name: Export app with Shinylive
         run: |
-          rm -rf docs
-          shinylive export shinylive-app docs
-          touch docs/.nojekyll
+          shinylive export shinylive-app _site
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
-          path: docs
+          path: _site
 
   deploy:
     environment:
