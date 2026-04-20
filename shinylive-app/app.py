@@ -1,22 +1,10 @@
 from __future__ import annotations
 
-import io
-
 import pandas as pd
-from openpyxl import Workbook
-from openpyxl.styles import PatternFill
 from shiny import reactive, render, ui
 from shiny.express import input
 
-
-STATUS_COLORS = {
-    "MATCH": "D9EAD3",
-    "MISSING_IN_FILE_2": "F4CCCC",
-    "MISSING_IN_FILE_1": "FCE5CD",
-    "FIELD_MISMATCH": "FFF2CC",
-}
-
-ui.page_opts(title="Excel Reconciliation Lite — Shinylive", fillable=True)
+ui.page_opts(title="Excel Reconciliation Lite — Shinylive CSV", fillable=True)
 
 ui.tags.style(
     """
@@ -28,26 +16,17 @@ ui.tags.style(
 
 ui.h2("Excel Reconciliation Engine Lite — Shinylive")
 ui.p(
-    "Browser-only Lite version for GitHub Pages. Best for demo, small files, and basic reconciliation.",
+    "CSV-only browser version for GitHub Pages. Use this for the most stable Shinylive deployment.",
     class_="app-note",
 )
 
-
 with ui.sidebar(width=360):
-    ui.input_radio_buttons(
-        "mode",
-        "Input format",
-        {"xlsx": "Excel (.xlsx)", "csv": "CSV (.csv)"},
-        selected="xlsx",
-    )
-    ui.input_file("file1", "Upload File 1", accept=[".xlsx", ".csv"], multiple=False)
-    ui.input_file("file2", "Upload File 2", accept=[".xlsx", ".csv"], multiple=False)
-    ui.output_ui("sheet_controls")
+    ui.input_file("file1", "Upload File 1 (CSV)", accept=[".csv"], multiple=False)
+    ui.input_file("file2", "Upload File 2 (CSV)", accept=[".csv"], multiple=False)
     ui.output_ui("column_controls")
     ui.input_action_button("run", "Run reconciliation", class_="btn-primary")
     ui.hr()
     ui.download_button("download_csv", "Download CSV")
-    ui.download_button("download_xlsx", "Download Excel")
 
 
 @render.express
@@ -77,16 +56,9 @@ def get_fileinfo(file_input_value):
     return file_input_value
 
 
-def read_uploaded_table(fileinfo, kind: str, sheet_name=None, header_row: int = 0) -> pd.DataFrame:
+def read_uploaded_csv(fileinfo) -> pd.DataFrame:
     path = fileinfo["datapath"] if isinstance(fileinfo, dict) else fileinfo.datapath
-    if kind == "xlsx":
-        return pd.read_excel(path, sheet_name=sheet_name, header=header_row)
     return pd.read_csv(path)
-
-
-def get_sheet_names(fileinfo) -> list[str]:
-    path = fileinfo["datapath"] if isinstance(fileinfo, dict) else fileinfo.datapath
-    return pd.ExcelFile(path).sheet_names
 
 
 def build_result(
@@ -173,70 +145,23 @@ def file2_info():
 
 
 @reactive.calc
-def sheet_names_1():
-    if input.mode() != "xlsx" or file1_info() is None:
-        return []
-    return get_sheet_names(file1_info())
-
-
-@reactive.calc
-def sheet_names_2():
-    if input.mode() != "xlsx" or file2_info() is None:
-        return []
-    return get_sheet_names(file2_info())
-
-
-@render.ui
-def sheet_controls():
-    if file1_info() is None or file2_info() is None or input.mode() != "xlsx":
-        return ui.p("For Excel files, sheet and header controls will appear here.", class_="small-muted")
-
-    s1 = sheet_names_1()
-    s2 = sheet_names_2()
-    return ui.TagList(
-        ui.h5("Excel options"),
-        ui.layout_columns(
-            ui.TagList(
-                ui.input_select("sheet1", "File 1 sheet", choices=s1, selected=s1[0] if s1 else None),
-                ui.input_numeric("header1", "File 1 header row (0-based)", value=0, min=0, max=50),
-            ),
-            ui.TagList(
-                ui.input_select("sheet2", "File 2 sheet", choices=s2, selected=s2[0] if s2 else None),
-                ui.input_numeric("header2", "File 2 header row (0-based)", value=0, min=0, max=50),
-            ),
-            col_widths=[6, 6],
-        ),
-    )
-
-
-@reactive.calc
 def df1():
     if file1_info() is None:
         raise ValueError("Upload File 1 first.")
-    sheet = None
-    header = 0
-    if input.mode() == "xlsx":
-        sheet = input.sheet1()
-        header = int(input.header1() or 0)
-    return read_uploaded_table(file1_info(), input.mode(), sheet, header)
+    return read_uploaded_csv(file1_info())
 
 
 @reactive.calc
 def df2():
     if file2_info() is None:
         raise ValueError("Upload File 2 first.")
-    sheet = None
-    header = 0
-    if input.mode() == "xlsx":
-        sheet = input.sheet2()
-        header = int(input.header2() or 0)
-    return read_uploaded_table(file2_info(), input.mode(), sheet, header)
+    return read_uploaded_csv(file2_info())
 
 
 @render.ui
 def column_controls():
     if file1_info() is None or file2_info() is None:
-        return ui.p("Upload both files to map keys and optional comparison columns.", class_="small-muted")
+        return ui.p("Upload both CSV files to map keys and optional comparison columns.", class_="small-muted")
 
     try:
         cols1 = [str(x) for x in df1().columns.tolist()]
@@ -316,7 +241,7 @@ def preview():
             pd.DataFrame(
                 {
                     "info": [
-                        "No result yet. Upload files, map columns, then click Run reconciliation."
+                        "No result yet. Upload CSV files, map columns, then click Run reconciliation."
                     ]
                 }
             ),
@@ -329,36 +254,3 @@ def preview():
 def download_csv():
     result = result_df()
     yield result.to_csv(index=False)
-
-
-@render.download(filename="reconciliation_lite.xlsx")
-def download_xlsx():
-    result = result_df()
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Reconciliation"
-
-    headers = result.columns.tolist()
-    for col_idx, header in enumerate(headers, start=1):
-        ws.cell(row=1, column=col_idx, value=header)
-
-    for row_idx, row in enumerate(result.itertuples(index=False), start=2):
-        row_status = getattr(row, "status", "")
-        fill_color = STATUS_COLORS.get(row_status)
-        for col_idx, value in enumerate(row, start=1):
-            cell = ws.cell(row=row_idx, column=col_idx, value=value)
-            if fill_color:
-                cell.fill = PatternFill(fill_type="solid", start_color=fill_color, end_color=fill_color)
-
-    for col_cells in ws.columns:
-        max_len = 0
-        col_letter = col_cells[0].column_letter
-        for cell in col_cells:
-            val = "" if cell.value is None else str(cell.value)
-            if len(val) > max_len:
-                max_len = len(val)
-        ws.column_dimensions[col_letter].width = min(max_len + 2, 40)
-
-    bio = io.BytesIO()
-    wb.save(bio)
-    yield bio.getvalue()
