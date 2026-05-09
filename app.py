@@ -31,7 +31,7 @@ app_ui = ui.page_sidebar(
         ui.p("Unlock audit-ready explanations, grouped asset logic, and fuller reconciliation reporting."),
         ui.p("CTA: Upgrade to Pro Report"),
     ),
-    title="Shinylive Excel Reconciliation App",
+    title="ReconcileForge Lite App",
 )
 
 
