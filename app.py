@@ -15,7 +15,7 @@ app_ui = ui.page_sidebar(
         ui.input_action_button("run", "Run Reconciliation", class_="btn-primary"),
         width=320,
     ),
-    ui.h2("Excel Reconciliation Lite"),
+    ui.h2("Reconcile Forge Lite"),
     ui.p("Upload 2 Excel files, select sheet and columns, then compare."),
     ui.h4("Mismatch Results"),
     ui.output_data_frame("result_table"),
